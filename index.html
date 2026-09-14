@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LeetCode Company Tracker</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --surface: #ffffff;
+      --surface2: #f9fafb;
+      --border: #e5e7eb;
+      --text: #111827;
+      --text-muted: #6b7280;
+      --accent: #374151;
+      --accent-hover: #1f2937;
+      --easy: #16a34a;
+      --medium: #d97706;
+      --hard: #dc2626;
+      --solved-bg: #f0fdf4;
+      --blue: #2563eb;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; min-height: 100vh; }
+
+    header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 10px; }
+    header h1 { font-size: 18px; font-weight: 700; color: var(--text); }
+    .header-sub { color: var(--text-muted); font-size: 12px; margin-left: auto; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 18px 24px; }
+
+    .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+    .panel-title { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+
+    /* Company selector */
+    .company-selector { display: flex; gap: 10px; align-items: flex-start; flex-wrap: wrap; }
+    .company-search-wrap { position: relative; min-width: 220px; }
+    #companySearchInput {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 7px 11px; font-size: 13px; outline: none;
+    }
+    #companySearchInput:focus { border-color: var(--accent); }
+    #companyDropdown {
+      position: absolute; top: calc(100% + 3px); left: 0; right: 0; z-index: 200;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08); max-height: 260px; overflow-y: auto; display: none;
+    }
+    #companyDropdown.open { display: block; }
+    .dropdown-item { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; }
+    .dropdown-item:hover { background: var(--surface2); }
+    .dropdown-item input[type=checkbox] { cursor: pointer; width: 14px; height: 14px; }
+    .dropdown-item label { cursor: pointer; flex: 1; font-size: 13px; }
+
+    .selected-chips { display: flex; flex-wrap: wrap; gap: 5px; flex: 1; min-width: 180px; align-items: center; }
+    .chip { display: inline-flex; align-items: center; gap: 4px; background: var(--surface2); border: 1px solid var(--border); border-radius: 16px; padding: 3px 9px; font-size: 12px; }
+    .chip-remove { cursor: pointer; color: var(--text-muted); font-size: 14px; line-height: 1; margin-left: 2px; }
+    .chip-remove:hover { color: var(--hard); }
+
+    .btn { padding: 7px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; transition: background 0.12s; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+    .btn-ghost { background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover { color: var(--text); border-color: #9ca3af; }
+
+    /* Filters */
+    .filter-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .filter-row input, .filter-row select {
+      background: var(--surface2); border: 1px solid var(--border); border-radius: 6px;
+      color: var(--text); padding: 6px 10px; font-size: 13px; outline: none;
+    }
+    .filter-row input:focus, .filter-row select:focus { border-color: var(--accent); }
+    #searchInput { flex: 1; min-width: 180px; }
+    .stats { margin-left: auto; color: var(--text-muted); font-size: 12px; white-space: nowrap; }
+    .stats strong { color: var(--text); }
+    .progress-bar { height: 3px; background: var(--border); border-radius: 2px; margin-top: 10px; }
+    .progress-fill { height: 100%; background: var(--easy); border-radius: 2px; transition: width 0.3s; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      background: var(--surface2); color: var(--text-muted); font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; padding: 9px 12px; text-align: left;
+      border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    thead th.sortable { cursor: pointer; user-select: none; }
+    thead th.sortable:hover { color: var(--text); }
+    thead th.active-sort { color: var(--accent); }
+    tbody tr { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--surface2); }
+    tbody tr.solved-row { background: var(--solved-bg); }
+    tbody tr.solved-row td { opacity: 0.65; }
+    tbody td { padding: 9px 12px; vertical-align: middle; }
+
+    .solved-cb { width: 15px; height: 15px; cursor: pointer; accent-color: var(--easy); }
+    .row-num { color: var(--text-muted); font-size: 12px; }
+    .q-title a { color: var(--text); text-decoration: none; font-weight: 500; }
+    .q-title a:hover { color: var(--blue); text-decoration: underline; }
+
+    .diff-badge { display: inline-block; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .diff-EASY   { background: #dcfce7; color: var(--easy); }
+    .diff-MEDIUM { background: #fef3c7; color: var(--medium); }
+    .diff-HARD   { background: #fee2e2; color: var(--hard); }
+
+    .topics-cell { display: flex; flex-wrap: wrap; gap: 3px; }
+    .topic-tag { background: #eff6ff; color: var(--blue); border-radius: 4px; padding: 2px 6px; font-size: 11px; cursor: pointer; white-space: nowrap; border: 1px solid #dbeafe; }
+    .topic-tag:hover { background: #dbeafe; }
+    .topic-tag.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+
+    .freq-cell { display: flex; align-items: center; gap: 6px; }
+    .freq-bar-bg { flex: 1; max-width: 55px; height: 4px; background: var(--border); border-radius: 2px; }
+    .freq-bar-fill { height: 100%; background: #9ca3af; border-radius: 2px; }
+    .freq-val { font-size: 12px; color: var(--text-muted); min-width: 34px; }
+
+    .company-tag { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .link-icon { color: var(--text-muted); text-decoration: none; font-size: 15px; }
+    .link-icon:hover { color: var(--blue); }
+
+    /* Empty / Loading */
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+    .empty-state .icon { font-size: 40px; margin-bottom: 10px; }
+    .empty-state p { font-size: 14px; }
+    .loading-bar { display: none; height: 3px; background: linear-gradient(90deg, var(--accent) 0%, #9ca3af 50%, var(--accent) 100%); background-size: 200% 100%; animation: shimmer 1.2s infinite; border-radius: 2px; margin-bottom: 12px; }
+    .loading-bar.visible { display: block; }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    #loadStatus { font-size: 12px; color: var(--text-muted); }
+    #loadStatus.error { color: var(--hard); }
+    #loadStatus.success { color: var(--easy); }
+
+    /* Pagination */
+    .pagination { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 14px 0; flex-wrap: wrap; }
+    .page-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-muted); border-radius: 5px; padding: 5px 10px; cursor: pointer; font-size: 12px; transition: all 0.1s; }
+    .page-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--text); }
+    .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .page-info { color: var(--text-muted); font-size: 12px; padding: 0 6px; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>LeetCode Company Tracker</h1>
+  <span class="header-sub">Source: liquidslr/leetcode-company-wise-problems &bull; Cached 24h per company</span>
+</header>
+
+<div class="container">
+
+  <!-- Company selector -->
+  <div class="panel">
+    <div class="panel-title">Companies</div>
+    <div class="company-selector">
+      <div class="company-search-wrap">
+        <input id="companySearchInput" type="text" placeholder="Search and add companies..." autocomplete="off" />
+        <div id="companyDropdown"></div>
+      </div>
+      <div class="selected-chips" id="selectedChips"></div>
+      <button class="btn btn-primary" id="loadBtn">Load Questions</button>
+      <button class="btn btn-ghost" id="clearAllBtn">Clear All</button>
+    </div>
+    <div style="margin-top:10px;display:flex;align-items:center;gap:10px;">
+      <div class="loading-bar" id="loadingBar" style="flex:1;"></div>
+      <span id="loadStatus"></span>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="panel">
+    <div class="filter-row">
+      <input id="searchInput" type="text" placeholder="Search by title..." />
+      <select id="topicFilter"><option value="">All Topics</option></select>
+      <select id="diffFilter">
+        <option value="">All Difficulties</option>
+        <option value="EASY">Easy</option>
+        <option value="MEDIUM">Medium</option>
+        <option value="HARD">Hard</option>
+      </select>
+      <select id="solvedFilter">
+        <option value="all">All</option>
+        <option value="unsolved">Unsolved</option>
+        <option value="solved">Solved</option>
+      </select>
+      <button class="btn btn-ghost" id="exportBtn">Export CSV</button>
+      <button class="btn btn-ghost" id="saveProgressBtn">Save Progress</button>
+      <button class="btn btn-ghost" id="loadProgressBtn">Load Progress</button>
+      <input type="file" id="progressFileInput" accept=".json" style="display:none" />
+      <span class="stats" id="statsEl"></span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Table -->
+  <div class="panel">
+    <div id="emptyState" class="empty-state">
+      <div class="icon">&#128269;</div>
+      <p>Select companies above and click <strong>Load Questions</strong></p>
+    </div>
+    <div class="table-wrap" id="tableWrap" style="display:none;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:28px;"></th>
+            <th style="width:40px;">#</th>
+            <th>Title</th>
+            <th class="sortable" data-sort="difficulty">Difficulty <span class="sort-icon">&#8597;</span></th>
+            <th>Topics</th>
+            <th class="sortable active-sort" data-sort="frequency">Frequency <span class="sort-icon">&#8595;</span></th>
+            <th class="sortable" data-sort="company">Company <span class="sort-icon">&#8597;</span></th>
+            <th style="width:32px;"></th>
+          </tr>
+        </thead>
+        <tbody id="questionsBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="pagination" id="pagination"></div>
+</div>
+
+<script>
+const BASE_URL = 'https://raw.githubusercontent.com/liquidslr/leetcode-company-wise-problems/main';
+const CACHE_PREFIX = 'lc2_';
+const CACHE_TTL = 24 * 60 * 60 * 1000;
+const SOLVED_KEY = 'lc_solved';
+const PAGE_SIZE = 75;
+const DEFAULT_COMPANIES = ['Google', 'Amazon', 'Meta', 'Microsoft', 'Apple'];
+
+const ALL_COMPANIES = [
+  "AMD","AQR Capital Management","Accenture","Accolite","Acko","Activision","Adobe","Affirm","Agoda",
+  "Airbnb","Airbus SE","Airtel","Airwallex","Akamai","Akuna Capital","Alibaba","Altimetrik","Amadeus",
+  "Amazon","Amdocs","American Express","Analytics quotient","Anduril","Aon","Apollo.io","AppDynamics",
+  "AppFolio","Apple","Applied Intuition","Arcesium","Arista Networks","Asana","Atlassian","Attentive",
+  "Audible","Aurora","Autodesk","Avalara","Avito","Axon","BILL Holdings","BNY Mellon","BP","Baidu",
+  "Bank of America","Barclays","Bentley Systems","BharatPe","BitGo","BlackRock","BlackStone","Blizzard",
+  "Block","Bloomberg","Bolt","Booking.com","Bosch","Box","Braze","Brex","Bridgewater Associates",
+  "ByteDance","CARS24","CEDCOSS","CME Group","CRED","CTC","CVENT","Cadence","Canonical","Capgemini",
+  "Capital One","Careem","Cashfree","Celigo","Chewy","Chime","Circle","Cisco","Citadel","Citigroup",
+  "Citrix","Clari","Cleartrip","Cloudera","Cloudflare","Coforge","Cognizant","Cohesity","Coinbase",
+  "Comcast","Commvault","Compass","Confluent","ConsultAdd","Coupang","Coursera","Coveo","Credit Karma",
+  "Criteo","CrowdStrike","Cruise","CureFit","DE Shaw","DP world","DRW","DXC Technology","Darwinbox",
+  "Databricks","Datadog","Dataminr","Delhivery","Deliveroo","Dell","Deloitte","DeltaX","Deutsche Bank",
+  "DevRev","Devsinc","Devtron","Directi","Disney","Docusign","DoorDash","Dream11","Dropbox","Druva",
+  "Dunzo","Duolingo","EPAM Systems","EY","EarnIn","Edelweiss Group","Electronic Arts","Epic Systems",
+  "Expedia","FPT","FactSet","Faire","Fastenal","Fidelity","Fiverr","Flexera","Flexport","Flipkart",
+  "Fortinet","Freecharge","FreshWorks","GE Digital","GE Healthcare","GSA Capital","GSN Games",
+  "Gameskraft","Garmin","Geico","General Motors","Genpact","GoDaddy","Gojek","Goldman Sachs","Google",
+  "Grab","Grammarly","Graviton","Groupon","Groww","Grubhub","Guidewire","Gusto","HCL","HP","HPE",
+  "HSBC","Harness","HashedIn","Hertz","HiLabs","Highspot","Hive","Hiver","Honeywell","Hotstar",
+  "Houzz","Huawei","Hubspot","Hudson River Trading","Hulu","IBM","IIT Bombay","IMC","INDmoney","IVP",
+  "IXL","InMobi","Indeed","Info Edge","Informatica","Infosys","Instacart","Intel","Intuit",
+  "J.P. Morgan","Jane Street","Jump Trading","Juniper Networks","Juspay","KLA","Kakao","Karat",
+  "Komprise","LINE","LTI","Larsen & Toubro","Lendingkart Technologies","Lenskart","Licious","Liftoff",
+  "LinkedIn","LiveRamp","Lowe's","Lucid","Luxoft","Lyft","MAQ Software","MSCI","Machine Zone",
+  "MakeMyTrip","Mapbox","Mastercard","MathWorks","McKinsey","Media.net","Meesho","Mercari","Meta",
+  "Microsoft","Microstrategy","Millennium","MindTree","Mindtickle","Miro","Mitsogo","Mixpanel",
+  "Mobileye","Moengage","Moloco","MongoDB","Morgan Stanley","Mountblue","Moveworks","Myntra","NCR",
+  "Nagarro","National Instruments","National Payments Corporation of India","Navan","Navi","NetApp",
+  "NetEase","Netflix","Netskope","Netsuite","Nextdoor","Niantic","Nielsen","Nike","NinjaCart","Nokia",
+  "Nordstrom","Notion","Nuro","Nutanix","Nvidia","Nykaa","OKX","Odoo","Okta","Ola Cabs","OpenAI",
+  "Opendoor","Optiver","Optum","Oracle","Otter.ai","Ozon","Palantir Technologies","Palo Alto Networks",
+  "Patreon","PayPal","PayPay","PayU","Paycom","Paytm","Peloton","PhonePe","Pinterest","Pocket Gems",
+  "Point72","Pony.ai","Poshmark","Postmates","PubMatic","Publicis Sapient","Pure Storage","Pwc",
+  "QBurst","Qualcomm","Qualtrics","Quora","RBC","Rakuten","Reddit","Remitly","Revolut","Riot Games",
+  "Ripple","Rippling","Rivian","Robinhood","Roblox","Roche","Rokt","Roku","Rubrik","SAP","SIG","SOTI",
+  "Salesforce","Samsara","Samsung","Scale AI","Sentry","ServiceNow","ShareChat","Shopee","Shopify",
+  "Siemens","Sigmoid","Slice","Smartsheet","Snap","Snapdeal","Snowflake","SoFi","Societe Generale",
+  "Softwire","Sony","SoundHound","Splunk","Spotify","Sprinklr","Squarepoint Capital","Squarespace",
+  "StackAdapt","Stackline","Stripe","Sumo Logic","Swiggy","Synopsys","Tanium","Target","Tech Mahindra",
+  "Tejas Networks","Tekion","Tencent","Teradata","Tesco","Tesla","Texas Instruments","The Trade Desk",
+  "Thomson Reuters","ThoughtWorks","ThousandEyes","Tiger Analytics","TikTok","Tinder","Tinkoff",
+  "Toast","Toptal","Tower Research Capital","Trexquant","Trilogy","Tripadvisor","TuSimple","Turing",
+  "Turo","Turvo","Twilio","Twitch","Two Sigma","UBS","UKG","USAA","Uber","UiPath","Unity","Upstart",
+  "Urban Company","VK","VMware","Valve","Vanguard","Veeva Systems","Verily","Veritas","Verkada",
+  "Vimeo","Virtu Financial","Virtusa","Visa","Walmart Labs","Warnermedia","WatchGuard","Wayfair",
+  "Waymo","WeRide","Wealthfront","Wells Fargo","Western Digital","Whatnot","WinZO","Wipro","Wise",
+  "Wish","Wissen Technology","Wix","Workday","Works Applications","WorldQuant","X","Yahoo","Yandex",
+  "Yelp","Yext","ZS Associates"
+];
+
+// State
+const state = {
+  selected: new Set(DEFAULT_COMPANIES),
+  loaded: new Map(),
+  all: [],
+  filtered: [],
+  sort: { by: 'frequency', dir: 'desc' },
+  filters: { search: '', topic: '', difficulty: '', solved: 'all' },
+  page: 0,
+  solved: new Set(JSON.parse(localStorage.getItem(SOLVED_KEY) || '[]')),
+  topicsSet: new Set(),
+};
+
+// Cache
+function getCached(company) {
+  try {
+    const raw = localStorage.getItem(CACHE_PREFIX + company);
+    if (!raw) return null;
+    const { ts, data } = JSON.parse(raw);
+    if (Date.now() - ts > CACHE_TTL) return null;
+    return data;
+  } catch { return null; }
+}
+function setCached(company, data) {
+  try {
+    localStorage.setItem(CACHE_PREFIX + company, JSON.stringify({ ts: Date.now(), data }));
+  } catch {
+    const keys = Object.keys(localStorage).filter(k => k.startsWith(CACHE_PREFIX));
+    if (keys.length) localStorage.removeItem(keys[0]);
+    try { localStorage.setItem(CACHE_PREFIX + company, JSON.stringify({ ts: Date.now(), data })); } catch {}
+  }
+}
+
+// CSV parser
+function parseCSV(text) {
+  const lines = text.replace(/\r/g, '').split('\n').filter(l => l.trim());
+  if (lines.length < 2) return [];
+  const headers = splitRow(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = splitRow(line);
+    const row = {};
+    headers.forEach((h, i) => { row[h.trim()] = (vals[i] || '').trim().replace(/^"|"$/g, ''); });
+    return row;
+  }).filter(r => r.Title);
+}
+function splitRow(line) {
+  const res = []; let cur = ''; let inQ = false;
+  for (const c of line) {
+    if (c === '"') inQ = !inQ;
+    else if (c === ',' && !inQ) { res.push(cur); cur = ''; }
+    else cur += c;
+  }
+  res.push(cur);
+  return res;
+}
+
+// Fetch company data
+async function fetchCompany(company) {
+  const cached = getCached(company);
+  if (cached) return cached;
+  const url = `${BASE_URL}/${encodeURIComponent(company)}/5.%20All.csv`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const text = await res.text();
+  const rows = parseCSV(text).map(r => ({
+    title:      r['Title'] || '',
+    difficulty: (r['Difficulty'] || 'MEDIUM').toUpperCase(),
+    frequency:  parseFloat(r['Frequency']) || 0,
+    topics:     (r['Topics'] || '').split(',').map(t => t.trim()).filter(Boolean),
+    link:       r['Link'] || '#',
+  }));
+  setCached(company, rows);
+  return rows;
+}
+
+// Load selected companies
+async function loadSelected() {
+  const btn = document.getElementById('loadBtn');
+  const status = document.getElementById('loadStatus');
+  const bar = document.getElementById('loadingBar');
+
+  if (state.selected.size === 0) { setStatus('Select at least one company first.', 'error'); return; }
+
+  const toLoad = [...state.selected].filter(c => !state.loaded.has(c));
+  if (toLoad.length === 0) {
+    buildFlatList(); applyFilters(); renderTable(); renderPagination();
+    setStatus(`${state.all.length.toLocaleString()} questions loaded from ${state.loaded.size} companies`, 'success');
+    return;
+  }
+
+  btn.disabled = true;
+  bar.classList.add('visible');
+  document.getElementById('emptyState').style.display = 'none';
+
+  let done = 0, errors = 0;
+  setStatus(`Fetching ${toLoad.length} companies...`, '');
+
+  const BATCH = 10;
+  for (let i = 0; i < toLoad.length; i += BATCH) {
+    await Promise.all(toLoad.slice(i, i + BATCH).map(async company => {
+      try {
+        const data = await fetchCompany(company);
+        state.loaded.set(company, data);
+      } catch { errors++; }
+      done++;
+      setStatus(`${done}/${toLoad.length} loaded...`, '');
+    }));
+  }
+
+  bar.classList.remove('visible');
+  btn.disabled = false;
+  buildFlatList();
+  applyFilters();
+  renderTable();
+  renderPagination();
+  setStatus(`${state.all.length.toLocaleString()} questions from ${state.loaded.size} companies${errors ? ` (${errors} failed)` : ''}`, 'success');
+}
+
+// Build flat question list
+function buildFlatList() {
+  state.all = [];
+  state.topicsSet = new Set();
+  for (const [company, rows] of state.loaded) {
+    if (!state.selected.has(company)) continue;
+    for (const q of rows) {
+      state.all.push({ ...q, company });
+      q.topics.forEach(t => state.topicsSet.add(t));
+    }
+  }
+  rebuildTopicFilter();
+}
+
+// Filter + sort
+function applyFilters() {
+  const { search, topic, difficulty, solved } = state.filters;
+  const sl = search.toLowerCase();
+  state.filtered = state.all.filter(q => {
+    if (sl && !q.title.toLowerCase().includes(sl)) return false;
+    if (topic && !q.topics.includes(topic)) return false;
+    if (difficulty && q.difficulty !== difficulty) return false;
+    if (solved === 'solved' && !state.solved.has(q.title)) return false;
+    if (solved === 'unsolved' && state.solved.has(q.title)) return false;
+    return true;
+  });
+  const { by, dir } = state.sort;
+  const m = dir === 'asc' ? 1 : -1;
+  const diffOrder = { EASY: 0, MEDIUM: 1, HARD: 2 };
+  state.filtered.sort((a, b) => {
+    if (by === 'frequency') return m * (a.frequency - b.frequency);
+    if (by === 'difficulty') return m * ((diffOrder[a.difficulty] ?? 1) - (diffOrder[b.difficulty] ?? 1));
+    if (by === 'company') return m * a.company.localeCompare(b.company);
+    return 0;
+  });
+  state.page = 0;
+  updateStats();
+}
+
+// Render
+function renderTable() {
+  const tbody = document.getElementById('questionsBody');
+  const wrap = document.getElementById('tableWrap');
+  const empty = document.getElementById('emptyState');
+
+  if (state.filtered.length === 0 && state.all.length === 0) {
+    wrap.style.display = 'none'; empty.style.display = 'block'; return;
+  }
+  wrap.style.display = 'block'; empty.style.display = 'none';
+
+  const start = state.page * PAGE_SIZE;
+  tbody.innerHTML = state.filtered.slice(start, start + PAGE_SIZE).map((q, i) => {
+    const num = start + i + 1;
+    const isSolved = state.solved.has(q.title);
+    const freqW = Math.max(2, Math.min(100, Math.round(q.frequency)));
+    const tags = q.topics.slice(0, 4).map(t =>
+      `<span class="topic-tag" onclick="filterByTopic('${esc(t)}')">${esc(t)}</span>`
+    ).join('');
+    return `<tr class="${isSolved ? 'solved-row' : ''}" data-title="${esc(q.title)}">
+      <td><input type="checkbox" class="solved-cb" ${isSolved ? 'checked' : ''} onchange="toggleSolved('${esc(q.title)}', this)" /></td>
+      <td class="row-num">${num}</td>
+      <td class="q-title"><a href="${esc(q.link)}" target="_blank" rel="noopener">${esc(q.title)}</a></td>
+      <td><span class="diff-badge diff-${q.difficulty}">${q.difficulty}</span></td>
+      <td><div class="topics-cell">${tags}</div></td>
+      <td><div class="freq-cell"><div class="freq-bar-bg"><div class="freq-bar-fill" style="width:${freqW}%"></div></div><span class="freq-val">${q.frequency.toFixed(1)}</span></div></td>
+      <td><span class="company-tag">${esc(q.company)}</span></td>
+      <td><a class="link-icon" href="${esc(q.link)}" target="_blank" rel="noopener" title="Open">&#8599;</a></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderPagination() {
+  const pg = document.getElementById('pagination');
+  const totalPages = Math.ceil(state.filtered.length / PAGE_SIZE);
+  if (totalPages <= 1) { pg.innerHTML = ''; return; }
+  const cur = state.page;
+  let html = `<button class="page-btn" onclick="goPage(${cur-1})" ${cur===0?'disabled':''}>&#8592; Prev</button>`;
+  let s = Math.max(0, cur-3), e = Math.min(totalPages-1, cur+3);
+  if (s > 0) html += `<button class="page-btn" onclick="goPage(0)">1</button>${s>1?'<span class="page-info">…</span>':''}`;
+  for (let i = s; i <= e; i++) html += `<button class="page-btn ${i===cur?'active':''}" onclick="goPage(${i})">${i+1}</button>`;
+  if (e < totalPages-1) { html += e < totalPages-2 ? '<span class="page-info">…</span>' : ''; html += `<button class="page-btn" onclick="goPage(${totalPages-1})">${totalPages}</button>`; }
+  html += `<button class="page-btn" onclick="goPage(${cur+1})" ${cur>=totalPages-1?'disabled':''}>Next &#8594;</button>`;
+  html += `<span class="page-info">Page ${cur+1} of ${totalPages}</span>`;
+  pg.innerHTML = html;
+}
+
+function goPage(n) {
+  state.page = Math.max(0, Math.min(n, Math.ceil(state.filtered.length / PAGE_SIZE) - 1));
+  renderTable(); renderPagination();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function updateStats() {
+  const total = state.filtered.length;
+  const solvedCount = state.filtered.filter(q => state.solved.has(q.title)).length;
+  const pct = total > 0 ? Math.round(solvedCount / total * 100) : 0;
+  document.getElementById('statsEl').innerHTML = `<strong>${total.toLocaleString()}</strong> questions &bull; <strong>${solvedCount}</strong> solved (${pct}%)`;
+  document.getElementById('progressFill').style.width = pct + '%';
+}
+
+function toggleSolved(title, cb) {
+  if (state.solved.has(title)) state.solved.delete(title);
+  else state.solved.add(title);
+  localStorage.setItem(SOLVED_KEY, JSON.stringify([...state.solved]));
+  if (state.filters.solved !== 'all') { applyFilters(); renderTable(); renderPagination(); }
+  else { const row = cb.closest('tr'); row.classList.toggle('solved-row', state.solved.has(title)); }
+  updateStats();
+}
+
+function filterByTopic(topic) {
+  document.getElementById('topicFilter').value = topic;
+  state.filters.topic = topic;
+  applyFilters(); renderTable(); renderPagination();
+}
+
+function rebuildTopicFilter() {
+  const sel = document.getElementById('topicFilter');
+  const cur = sel.value;
+  const sorted = [...state.topicsSet].sort();
+  sel.innerHTML = '<option value="">All Topics</option>' +
+    sorted.map(t => `<option value="${esc(t)}" ${t===cur?'selected':''}>${esc(t)}</option>`).join('');
+}
+
+// Company chips
+function renderChips() {
+  document.getElementById('selectedChips').innerHTML = [...state.selected].map(c =>
+    `<span class="chip">${esc(c)}<span class="chip-remove" onclick="removeCompany('${esc(c)}')">&times;</span></span>`
+  ).join('');
+}
+function removeCompany(c) { state.selected.delete(c); renderChips(); updateDropdown(); }
+
+// Dropdown
+function updateDropdown() {
+  const q = document.getElementById('companySearchInput').value.toLowerCase();
+  const list = q ? ALL_COMPANIES.filter(c => c.toLowerCase().includes(q)).slice(0, 50) : ALL_COMPANIES.slice(0, 60);
+  document.getElementById('companyDropdown').innerHTML = list.map(c =>
+    `<div class="dropdown-item"><input type="checkbox" id="chk_${esc(c)}" ${state.selected.has(c)?'checked':''} onchange="toggleCompany('${esc(c)}',this)"><label for="chk_${esc(c)}">${esc(c)}</label></div>`
+  ).join('');
+}
+function toggleCompany(c, cb) { if (cb.checked) state.selected.add(c); else state.selected.delete(c); renderChips(); }
+
+// Export
+function exportCSV() {
+  const rows = [['Title','Difficulty','Frequency','Topics','Company','Link','Solved']];
+  state.filtered.forEach(q => rows.push([
+    `"${q.title}"`, q.difficulty, q.frequency.toFixed(2),
+    `"${q.topics.join(', ')}"`, `"${q.company}"`, q.link,
+    state.solved.has(q.title) ? 'Yes' : 'No'
+  ]));
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([rows.map(r=>r.join(',')).join('\n')], {type:'text/csv'})),
+    download: 'leetcode_questions.csv'
+  });
+  a.click();
+}
+
+// Save / Load progress
+function saveProgress() {
+  const payload = JSON.stringify({
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    solved: [...state.solved],
+  }, null, 2);
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([payload], { type: 'application/json' })),
+    download: 'leetcode-progress.json',
+  });
+  a.click();
+}
+
+function loadProgress(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data.solved)) throw new Error('Invalid format');
+      data.solved.forEach(t => state.solved.add(t));
+      localStorage.setItem(SOLVED_KEY, JSON.stringify([...state.solved]));
+      applyFilters(); renderTable(); renderPagination();
+      setStatus(`Loaded ${data.solved.length} solved problems from file.`, 'success');
+    } catch {
+      setStatus('Failed to load progress — invalid file.', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+// Sort
+function setSort(by) {
+  state.sort.dir = state.sort.by === by ? (state.sort.dir === 'asc' ? 'desc' : 'asc') : (by === 'frequency' ? 'desc' : 'asc');
+  state.sort.by = by;
+  document.querySelectorAll('thead th.sortable').forEach(th => {
+    const active = th.dataset.sort === by;
+    th.classList.toggle('active-sort', active);
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.innerHTML = active ? (state.sort.dir === 'asc' ? '&#8593;' : '&#8595;') : '&#8597;';
+  });
+  applyFilters(); renderTable(); renderPagination();
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function setStatus(msg, type) { const el = document.getElementById('loadStatus'); el.textContent = msg; el.className = type || ''; }
+
+// Init
+document.addEventListener('DOMContentLoaded', () => {
+  renderChips();
+  updateDropdown();
+
+  const si = document.getElementById('companySearchInput');
+  si.addEventListener('focus', () => { updateDropdown(); document.getElementById('companyDropdown').classList.add('open'); });
+  si.addEventListener('input', () => { updateDropdown(); document.getElementById('companyDropdown').classList.add('open'); });
+  document.addEventListener('click', e => { if (!document.querySelector('.company-search-wrap').contains(e.target)) document.getElementById('companyDropdown').classList.remove('open'); });
+
+  document.getElementById('loadBtn').addEventListener('click', loadSelected);
+  document.getElementById('clearAllBtn').addEventListener('click', () => { state.selected.clear(); renderChips(); updateDropdown(); });
+  document.getElementById('searchInput').addEventListener('input', e => { state.filters.search = e.target.value; applyFilters(); renderTable(); renderPagination(); });
+  document.getElementById('topicFilter').addEventListener('change', e => { state.filters.topic = e.target.value; applyFilters(); renderTable(); renderPagination(); });
+  document.getElementById('diffFilter').addEventListener('change', e => { state.filters.difficulty = e.target.value; applyFilters(); renderTable(); renderPagination(); });
+  document.getElementById('solvedFilter').addEventListener('change', e => { state.filters.solved = e.target.value; applyFilters(); renderTable(); renderPagination(); });
+  document.getElementById('exportBtn').addEventListener('click', exportCSV);
+  document.getElementById('saveProgressBtn').addEventListener('click', saveProgress);
+  document.getElementById('loadProgressBtn').addEventListener('click', () => document.getElementById('progressFileInput').click());
+  document.getElementById('progressFileInput').addEventListener('change', e => { if (e.target.files[0]) loadProgress(e.target.files[0]); e.target.value = ''; });
+  document.querySelectorAll('thead th.sortable').forEach(th => th.addEventListener('click', () => setSort(th.dataset.sort)));
+});
+</script>
+</body>
+</html>
