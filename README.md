@@ -1,8 +1,10 @@
-# LeetCode Company Tracker
+# LeetCode Company Tracker - Company Tagged Questions by Frequency
 
-A static web app to browse, filter, and track company-tagged LeetCode questions ranked by frequency.
+Browse 2000+ LeetCode questions tagged by company (Google, Amazon, Meta, Microsoft, Apple and 430+ more), sorted by frequency and probability of being asked in interviews. Filter by topic, difficulty, and track your solved progress.
 
 **Live site:** https://sumanthvelagala.github.io/leetcode-tracker
+
+> Keywords: leetcode company wise questions, leetcode google questions, leetcode amazon questions, leetcode frequency, leetcode interview questions, company tagged leetcode, leetcode probability, leetcode most asked questions
 
 ## Features
 
