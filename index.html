@@ -378,7 +378,7 @@ async function loadSelected() {
   let done = 0, errors = 0;
   setStatus(`Fetching ${toLoad.length} companies...`, '');
 
-  const BATCH = 10;
+  const BATCH = 20;
   for (let i = 0; i < toLoad.length; i += BATCH) {
     await Promise.all(toLoad.slice(i, i + BATCH).map(async company => {
       try {
