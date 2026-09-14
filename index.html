@@ -136,6 +136,30 @@
     .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
     .page-info { color: var(--text-muted); font-size: 12px; padding: 0 6px; }
 
+    /* Topic multi-select dropdown */
+    .topic-filter-wrap { position: relative; }
+    .topic-dropdown {
+      display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 200;
+      background: var(--surface); border: 1px solid var(--border); border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08); width: 220px;
+    }
+    .topic-dropdown.open { display: block; }
+    .topic-dropdown-search { padding: 8px 8px 4px; }
+    .topic-dropdown-search input {
+      width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+      color: var(--text); padding: 5px 9px; font-size: 12px; outline: none;
+    }
+    .topic-dropdown-search input:focus { border-color: var(--accent); }
+    .topic-dropdown-list { max-height: 220px; overflow-y: auto; padding: 4px 0; }
+    .topic-dropdown-list label {
+      display: flex; align-items: center; gap: 8px; padding: 5px 12px;
+      cursor: pointer; font-size: 13px;
+    }
+    .topic-dropdown-list label:hover { background: var(--surface2); }
+    .topic-dropdown-list input[type=checkbox] { cursor: pointer; accent-color: var(--blue); }
+    .topic-dropdown-footer { padding: 6px 8px; border-top: 1px solid var(--border); }
+    #topicFilterCount { font-size: 11px; background: var(--blue); color: #fff; border-radius: 10px; padding: 1px 6px; margin-right: 3px; display: none; }
+
     ::-webkit-scrollbar { width: 5px; height: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -172,7 +196,16 @@
   <div class="panel">
     <div class="filter-row">
       <input id="searchInput" type="text" placeholder="Search by title..." />
-      <select id="topicFilter"><option value="">All Topics</option></select>
+      <div class="topic-filter-wrap" id="topicFilterWrap">
+        <button class="btn btn-ghost" id="topicFilterBtn">Topics <span id="topicFilterCount"></span>&#9662;</button>
+        <div class="topic-dropdown" id="topicDropdown">
+          <div class="topic-dropdown-search"><input type="text" id="topicSearchInput" placeholder="Search topics..." /></div>
+          <div class="topic-dropdown-list" id="topicList"></div>
+          <div class="topic-dropdown-footer">
+            <button class="btn btn-ghost" id="topicClearBtn" style="font-size:11px;padding:4px 10px;">Clear</button>
+          </div>
+        </div>
+      </div>
       <select id="diffFilter">
         <option value="">All Difficulties</option>
         <option value="EASY">Easy</option>
@@ -288,7 +321,7 @@ const state = {
   all: [],
   filtered: [],
   sort: { by: 'frequency', dir: 'desc' },
-  filters: { search: '', topic: '', difficulty: '', solved: 'all' },
+  filters: { search: '', topics: new Set(), difficulty: '', solved: 'all' },
   page: 0,
   solved: new Set(JSON.parse(localStorage.getItem(SOLVED_KEY) || '[]')),
   topicsSet: new Set(),
@@ -410,16 +443,16 @@ function buildFlatList() {
       q.topics.forEach(t => state.topicsSet.add(t));
     }
   }
-  rebuildTopicFilter();
+  rebuildTopicList();
 }
 
 // Filter + sort
 function applyFilters() {
-  const { search, topic, difficulty, solved } = state.filters;
+  const { search, topics, difficulty, solved } = state.filters;
   const sl = search.toLowerCase();
   state.filtered = state.all.filter(q => {
     if (sl && !q.title.toLowerCase().includes(sl)) return false;
-    if (topic && !q.topics.includes(topic)) return false;
+    if (topics.size > 0 && !q.topics.some(t => topics.has(t))) return false;
     if (difficulty && q.difficulty !== difficulty) return false;
     if (solved === 'solved' && !state.solved.has(q.title)) return false;
     if (solved === 'unsolved' && state.solved.has(q.title)) return false;
@@ -508,18 +541,37 @@ function toggleSolved(title, cb) {
   updateStats();
 }
 
-function filterByTopic(topic) {
-  document.getElementById('topicFilter').value = topic;
-  state.filters.topic = topic;
+function toggleTopic(topic, checked) {
+  if (checked) state.filters.topics.add(topic);
+  else state.filters.topics.delete(topic);
+  updateTopicBtn();
   applyFilters(); renderTable(); renderPagination();
 }
 
-function rebuildTopicFilter() {
-  const sel = document.getElementById('topicFilter');
-  const cur = sel.value;
+function filterByTopic(topic) {
+  state.filters.topics.add(topic);
+  updateTopicBtn();
+  rebuildTopicList(document.getElementById('topicSearchInput').value);
+  applyFilters(); renderTable(); renderPagination();
+}
+
+function rebuildTopicList(filter = '') {
+  const list = document.getElementById('topicList');
   const sorted = [...state.topicsSet].sort();
-  sel.innerHTML = '<option value="">All Topics</option>' +
-    sorted.map(t => `<option value="${esc(t)}" ${t===cur?'selected':''}>${esc(t)}</option>`).join('');
+  const visible = filter ? sorted.filter(t => t.toLowerCase().includes(filter)) : sorted;
+  list.innerHTML = visible.map(t => `
+    <label>
+      <input type="checkbox" value="${esc(t)}" ${state.filters.topics.has(t) ? 'checked' : ''}
+        onchange="toggleTopic('${esc(t)}', this.checked)" />
+      ${esc(t)}
+    </label>`).join('');
+}
+
+function updateTopicBtn() {
+  const count = state.filters.topics.size;
+  const badge = document.getElementById('topicFilterCount');
+  badge.textContent = count;
+  badge.style.display = count > 0 ? 'inline' : 'none';
 }
 
 // Company chips
@@ -615,7 +667,10 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('loadBtn').addEventListener('click', loadSelected);
   document.getElementById('clearAllBtn').addEventListener('click', () => { state.selected.clear(); renderChips(); updateDropdown(); });
   document.getElementById('searchInput').addEventListener('input', e => { state.filters.search = e.target.value; applyFilters(); renderTable(); renderPagination(); });
-  document.getElementById('topicFilter').addEventListener('change', e => { state.filters.topic = e.target.value; applyFilters(); renderTable(); renderPagination(); });
+  document.getElementById('topicFilterBtn').addEventListener('click', e => { e.stopPropagation(); document.getElementById('topicDropdown').classList.toggle('open'); rebuildTopicList(); });
+  document.getElementById('topicSearchInput').addEventListener('input', e => rebuildTopicList(e.target.value));
+  document.getElementById('topicClearBtn').addEventListener('click', () => { state.filters.topics.clear(); updateTopicBtn(); rebuildTopicList(); applyFilters(); renderTable(); renderPagination(); });
+  document.addEventListener('click', e => { if (!document.getElementById('topicFilterWrap').contains(e.target)) document.getElementById('topicDropdown').classList.remove('open'); });
   document.getElementById('diffFilter').addEventListener('change', e => { state.filters.difficulty = e.target.value; applyFilters(); renderTable(); renderPagination(); });
   document.getElementById('solvedFilter').addEventListener('change', e => { state.filters.solved = e.target.value; applyFilters(); renderTable(); renderPagination(); });
   document.getElementById('exportBtn').addEventListener('click', exportCSV);
